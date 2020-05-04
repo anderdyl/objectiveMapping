@@ -11,9 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import path
 from scipy import interpolate
+
 import h5py
 from testbedutils import geoprocess
-import objMapPrep
 from objMapPrep import coarseBackground
 from objMapPrep import getGeoDatasets
 from objMapPrep import binMorph
