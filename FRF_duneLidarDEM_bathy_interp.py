@@ -9,16 +9,12 @@ It is written for LARC bathy interpolation and produces a number of plots at eac
 from netCDF4 import Dataset
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import path
 from scipy import interpolate
-
-import h5py
-from testbedutils import geoprocess
 from objMapPrep import coarseBackground
 from objMapPrep import getGeoDatasets
 from objMapPrep import binMorph
-from objMapPrep import scatterDEM
-from objMapPrep import pcolorDEM
+from objMapPlots import scatterDEM, pcolorDEM
+
 noise = 0.01    # meters elevation
 Lx = 15    # meters cross-shore
 Ly = 150    # meters alongshore
@@ -27,10 +23,11 @@ countBinThresh = 3  # number of data points required in bin
 
 
 # Load the background mean
-bg = Dataset('/home/dylananderson/projects/duckSurveyData/backgroundDEMt0_TimeMean.nc')
+bg = Dataset('http://134.164.129.55/thredds/dodsC/cmtb/integratedBathyProduct/survey/2020/CMTB'
+             '-integratedBathyProduct_survey_202001.nc')
 x = bg.variables['xFRF'][:]
 y = bg.variables['yFRF'][:]
-zbg = bg.variables['elevation'][:]
+zbg = bg.variables['elevation'][:].squeeze()
 xx, yy = np.meshgrid(x, y)
 
 xx = np.ma.masked_where(yy > 4500, xx)
@@ -45,10 +42,10 @@ cdy = 8
 xc, yc, zc, xn, yn = coarseBackground(x=x, y=y, z=zbg, cdx=cdx, cdy=cdy)
 
 
-bathyFile = '/home/dylananderson/projects/duckSurveyData/FRF_20180226_1147_FRF_NAVD88_LARC_GPS_UTC_v20180228.nc'
-duneFile = '/home/dylananderson/projects/duckSurveyData/FRF-geomorphology_DEMs_duneLidarDEM_20180303_123015.nc'
-pierFile = '/home/dylananderson/projects/duckSurveyData/FRF-geomorphology_DEMs_pierLidarDEM_20180309_210015.nc'
-clarisFile = '/home/dylananderson/projects/duckSurveyData/20180303_region2.mat'
+bathyFile = 'http://134.164.129.55/thredds/dodsC/FRF/geomorphology/elevationTransects/survey/FRF_20200110_1180_FRF_NAVD88_LARC_GPS_UTC_v20200113.nc'
+duneFile = 'http://134.164.129.55/thredds/dodsC/FRF/geomorphology/DEMs/duneLidarDEM/2020/FRF-geomorphology_DEMs_duneLidarDEM_202001.nc'
+pierFile = 'http://134.164.129.55/thredds/dodsC/FRF/geomorphology/DEMs/pierLidarDEM/2020/FRF-geomorphology_DEMs_pierLidarDEM_20200113_120015.nc'
+clarisFile = None
 
 getData = getGeoDatasets(bathyFile=bathyFile, pierFile=pierFile, duneFile=duneFile, clarisFile=clarisFile)
 
@@ -57,9 +54,9 @@ pier = getData.getPier()
 dune = getData.getDune()
 claris = getData.getClaris()
 
-zs = np.ma.concatenate([bathy['z'], dune['z'], pier['z'], claris['z']])
-ys = np.ma.concatenate([bathy['y'], dune['y'], pier['y'], claris['y']])
-xs = np.ma.concatenate([bathy['x'], dune['x'], pier['x'], claris['x']])
+zs = np.ma.concatenate([bathy['z'], dune['z'], pier['z']]) # , claris['z']])
+ys = np.ma.concatenate([bathy['y'], dune['y'], pier['y']]) #, claris['y']])
+xs = np.ma.concatenate([bathy['x'], dune['x'], pier['x']]) #, claris['x']])
 
 binned = binMorph(xn, yn, xs, ys, zs)
 
@@ -82,7 +79,6 @@ scatterDEM(x=xc[id], y=yc[id], z=stdErr, title='standard error [m]', label='stan
 scatterDEM(x=xc[id], y=yc[id], z=zFluc, title='Difference between Median Obs and previous map', label='elevation flucuation [m] of binned data', cmap='RdBu')
 
 
-
 # map example survey
 # extract relevant domain for mapping from coarser grid scale
 xmin = np.min(xc[id])-Lx*3  # min cross-shore
@@ -102,10 +98,10 @@ ax6.set_title('subset defined by index')
 
 
 
-from obj_map_interp import map_interp
+from objMapInterp import map_interp
 
 dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[id], y=yc[id], zFluc=zFluc, noise=noise, Lx=Lx, Ly=Ly, xInt=xc[idInt], yInt=yc[idInt])
-#dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[id], y=yc[id], zFluc=zFluc, noise=noise, Lx=Lx, Ly=Ly, xInt=xx[idInt], yInt=yy[idInt])
+#dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[cellIDsAboveBinThresh], y=yc[cellIDsAboveBinThresh], zFluc=zFluc, noise=noise, Lx=Lx, Ly=Ly, xInt=xx[idInt], yInt=yy[idInt])
 
 allzeros = np.ones(xc.shape)
 nmseest = np.ones(xc.shape)

@@ -15,10 +15,11 @@ import h5py
 from objMapPrep import coarseBackground
 from objMapPrep import getGeoDatasets
 from objMapPrep import binMorph
-from objGridPlots import scatterDEM, pcolorDEM
-from obj_map_interp import map_interp
+from objMapPlots import scatterDEM, pcolorDEM
+from objMapInterp import map_interp
 from getdatatestbed import getDataFRF
 from testbedutils import sblib as sb
+import objMapPlots
 
 noise = 0.01    # meters elevation
 Lx = 15    # meters cross-shore
@@ -61,7 +62,7 @@ cdy = 8
 xc, yc, zc, xn, yn = coarseBackground(x=x, y=y, z=zbg, cdx=cdx, cdy=cdy)
 ######################### can i put above in function #######################
 
-dt = DT.timedelta(minutes=60)
+dt = DT.timedelta(days=60)
 for tt, date in enumerate(sb.createDateList(start, end, dt)):   # make one merged product (hourly)
     if bathyAll is not None:
         print('   add logic to bathy, this is going to be weird')
@@ -91,7 +92,6 @@ for tt, date in enumerate(sb.createDateList(start, end, dt)):   # make one merge
         types.append(' dune')
     if pierAll is not None and pier is not None:
         xx, yy = np.meshgrid(pier['xFRF'], pier['yFRF'])
-
         zs = np.ma.concatenate([zs, pier['elevation'].flatten()])
         ys = np.ma.concatenate([ys, yy.flatten()])
         xs = np.ma.concatenate([xs, xx.flatten()])
@@ -107,17 +107,16 @@ for tt, date in enumerate(sb.createDateList(start, end, dt)):   # make one merge
     binned = binMorph(xn, yn, xs, ys, zs)
     
     bc = binned['binCounts']
-    id = np.nonzero(bc > countBinThresh)
-    bcvals = bc[id]
+    cellIDsAboveBinThresh = np.nonzero(bc > countBinThresh)
+    bcvals = bc[cellIDsAboveBinThresh]
     zbin = binned['zBinVar']
     # check standard error to see if noise value you chose is reasonable
-    stdErr = np.sqrt(zbin[id]/bc[id])
+    stdErr = np.sqrt(zbin[cellIDsAboveBinThresh] / bc[cellIDsAboveBinThresh])
     zbM = binned['zBinMedian']
-    zFluc = zbM[id] - zc[id]
+    zFluc = zbM[cellIDsAboveBinThresh] - zc[cellIDsAboveBinThresh]
     
-    import objGridPlots
     ofname = 'preprocess.png'
-    objGridPlots.binnedDataPlot(binned, xc, yc, id, stdErr, zFluc)
+    objMapPlots.binnedDataPlot(ofname, binned, xc, yc, cellIDsAboveBinThresh, stdErr, zFluc)
     # scatterDEM(x=binned['xBinMedian'], y=binned['yBinMedian'], z=binned['zBinMedian'],
     #            title="Binned Survey", label='elevation (m)')
     #
@@ -132,39 +131,34 @@ for tt, date in enumerate(sb.createDateList(start, end, dt)):   # make one merge
     
     # map example survey
     # extract relevant domain for mapping from coarser grid scale
-    xmin = np.min(xc[id])-Lx*3  # min cross-shore
-    xmax = np.max(xc[id])+Lx*3  # max cross-shore
-    ymin = np.min(yc[id])-Ly*3  # min alongshore
-    ymax = np.max(yc[id])+Ly*3  # max alongshore
-    idInt = np.where((xc > xmin) & (xc < xmax) & (yc > ymin) & (yc < ymax))
+    xmin = np.min(xc[cellIDsAboveBinThresh]) - Lx * 3                                               # min cross-shore
+    xmax = np.max(xc[cellIDsAboveBinThresh]) + Lx * 3                                               # max cross-shore
+    ymin = np.min(yc[cellIDsAboveBinThresh]) - Ly * 3                                               # min alongshore
+    ymax = np.max(yc[cellIDsAboveBinThresh]) + Ly * 3                                               # max alongshore
+    idInt = np.where((xc > xmin) & (xc < xmax) & (yc > ymin) & (yc < ymax))  # find appropriate indices that meet
     
     # checking the index created
-    fig6, ax6 = plt.subplots(1, 1, figsize=(5, 5))
-    sc6 = ax6.scatter(xc[idInt], yc[idInt], c=zc[idInt])
-    #sc6 = ax6.scatter(xx[idInt], yy[idInt], c=zbg[idInt])
+    ofname = 'indexCheck.png'
+    scatterDEM(x=xc[idInt], y=yc[idInt], z=zc[idInt], title='subset defined by index', label='elevation [m]',
+               ofname=ofname)
     
-    cbar = plt.colorbar(sc6, ax=ax6)
-    cbar.set_label('elevation [m')
-    ax6.set_title('subset defined by index')
-    
-    
-    
-    dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[id], y=yc[id], zFluc=zFluc,
+    dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[cellIDsAboveBinThresh], y=yc[cellIDsAboveBinThresh], zFluc=zFluc,
                                                                                   noise=noise, Lx=Lx, Ly=Ly,
                                                                                   xInt=xc[idInt], yInt=yc[idInt])
     #dgcov, dcovE, A, Aprime, mapFluc, nmseEst, dcovA, dcovA2, sigVar = map_interp(x=xc[id], y=yc[id], zFluc=zFluc,
     #                                                   noise=noise, Lx=Lx, Ly=Ly, xInt=xx[idInt], yInt=yy[idInt])
-    
+    # initialize arrays
     allzeros = np.ones(xc.shape)
     nmseest = np.ones(xc.shape)
-    nmseest[idInt] = nmseEst.T
     mapfluc = np.zeros(xc.shape)
+    
+    nmseest[idInt] = nmseEst.T
     mapfluc[idInt] = mapFluc
     goodi = np.nonzero(nmseest < .2)
     badi = np.nonzero(nmseest > .2)
     mapfluc[badi] = allzeros[badi]
     
-    mapz = mapfluc+zc
+    mapz = mapfluc + zc
     
     # look at error estimates
     fig7, ax7 = plt.subplots(1, 1, figsize=(5, 5))

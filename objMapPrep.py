@@ -1,7 +1,6 @@
 
-
-
-
+import sys
+sys.path.append('/home/spike/repos')
 from netCDF4 import Dataset
 import numpy as np
 import h5py
@@ -10,8 +9,8 @@ from matplotlib import path
 
 
 def binMorph(xn, yn, xs, ys, zs):
-    """We continuously need to take a spatial dataset and bin it, or rasterize it,
-    to a gridded product of lower resolution
+    """We continuously need to take a spatial dataset and bin it, or rasterize it, to a gridded product of lower
+    resolution.
 
     Args:
         xn (array): bin-corners in the x-direction
@@ -34,7 +33,6 @@ def binMorph(xn, yn, xs, ys, zs):
 
     TODO:
     """
-    import numpy as np
     points = np.vstack((xs, ys))
     points = points.T
     # bin example survey to the grid (use median to remove outliers)
@@ -73,7 +71,6 @@ def binMorph(xn, yn, xs, ys, zs):
 
     binCounts = np.zeros((len(yn), len(xn)))
 
-    from collections import Counter
     for num, j in enumerate(yn):
         for num2, i in enumerate(xn):
             vertices = np.array([[xgSW[num, num2], ygSW[num, num2]], [xgSE[num, num2], ygSE[num, num2]],
@@ -143,22 +140,6 @@ def coarseBackground(x, y, z, cdx,cdy):
 
     return xc, yc, zc, xn, yn
 
-
-def scatterDEM(x, y, z, title, label='elevation (m)', cmap='YlGnBu'):
-    import matplotlib.pyplot as plt
-    fig3a, ax3a = plt.subplots(1, 1, figsize=(5, 5))
-    sc3a = ax3a.scatter(x, y, c=z, cmap=cmap)
-    cbar = plt.colorbar(sc3a, ax=ax3a)
-    cbar.set_label(label)
-    ax3a.set_title(title)
-
-def pcolorDEM(x, y, z, title, label='elevation(m)'):
-    import matplotlib.pyplot as plt
-    fig3, ax3 = plt.subplots(1, 1, figsize=(5, 5))
-    pc2 = ax3.pcolor(x, y, z)
-    cbar = plt.colorbar(pc2, ax=ax3)
-    cbar.set_label(label)
-    ax3.set_title(title)
 
 class getGeoDatasets:
     """ A call that goes to each relevant morphological data set and outputs in a similar format.
@@ -259,7 +240,8 @@ class getGeoDatasets:
         everything to NC state plane and then to FRF coords with testbedutils.geoprocess
         BUT only keeps data between yFRF=-100 and 1400
         """
-
+        if self.clarisFile is None:
+            return None
         with h5py.File(self.clarisFile, 'r') as f:
             for k in f.keys():
                 print(k)
