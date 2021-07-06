@@ -6,7 +6,7 @@ import numpy as np
 import h5py
 from testbedutils import geoprocess
 from matplotlib import path
-
+import datetime as DT
 
 def binMorph(xn, yn, xs, ys, zs):
     """We continuously need to take a spatial dataset and bin it, or rasterize it, to a gridded product of lower
@@ -33,6 +33,7 @@ def binMorph(xn, yn, xs, ys, zs):
 
     TODO:
     """
+    tstart = DT.datetime.now()
     points = np.vstack((xs, ys))
     points = points.T
     # bin example survey to the grid (use median to remove outliers)
@@ -46,12 +47,12 @@ def binMorph(xn, yn, xs, ys, zs):
     xg, yg = np.meshgrid(xe, ye)
     # yg, xg = np.meshgrid(ye, xe)
     # grid corners
-    xgSW = xg[0:-1, 0:-1]
-    ygSW = yg[0:-1, 0:-1]
-    xgSE = xg[0:-1:, 1:]
-    ygSE = yg[0:-1:, 1:]
-    xgNW = xg[1:, 0:-1]
-    ygNW = yg[1:, 0:-1]
+    xgSW = xg[:-1, :-1]
+    ygSW = yg[:-1, :-1]
+    xgSE = xg[:-1:, 1:]
+    ygSE = yg[:-1:, 1:]
+    xgNW = xg[1:, :-1]
+    ygNW = yg[1:, :-1]
     xgNE = xg[1:, 1:]
     ygNE = yg[1:, 1:]
 
@@ -101,26 +102,30 @@ def binMorph(xn, yn, xs, ys, zs):
                     del goodValues
                     del binValues
 
-    output = dict()
-    output['xBinMedian'] = xBinMedian
-    output['yBinMedian'] = yBinMedian
-    output['zBinMedian'] = zBinMedian
-    output['binCounts'] = binCounts
-    output['xBinVar'] = xBinVar
-    output['yBinVar'] = yBinVar
-    output['zBinVar'] = zBinVar
-    output['points'] = points
+    output = {
+        'xBinMedian': xBinMedian,
+        'yBinMedian': yBinMedian,
+        'zBinMedian': zBinMedian,
+        'binCounts':  binCounts,
+        'xBinVar':    xBinVar,
+        'yBinVar':    yBinVar,
+        'zBinVar':    zBinVar,
+        'points':     points,
+            }
+    print('    Binning took {:.1f} s'.format((DT.datetime.now() - tstart).total_seconds()))
     return output
 
 
-def coarseBackground(x, y, z, cdx,cdy):
-    """Need a coarse background DEM to start everything off
+def coarseBackground(x, y, z, cdx, cdy):
+    """Coarsen a background DEM to start everything off for objective mapping routine.
 
     Args:
         x (array): x-coordinates for spatial data being binned
         y (array): y-coordinates for spatial data being binned
         z (array): whatever value is being binned (i.e. elevation)
-
+        cdx (array):
+        cdy (array):
+        
     Returns:
         xc (array): x-coordinates grid for coarser mesh
         yc (array): y-coordinates grid for coarser mesh
@@ -132,8 +137,8 @@ def coarseBackground(x, y, z, cdx,cdy):
     """
     from scipy import interpolate
 
-    yn = np.arange(y[0] - cdx, y[-1] + cdx, cdx)
-    xn = np.arange(x[0] - cdy, x[-1] + cdy, cdy)
+    yn = np.arange(y[0] - cdy, y[-1] + cdy, cdy)
+    xn = np.arange(x[0] - cdx, x[-1] + cdx, cdx)
     xc, yc = np.meshgrid(xn, yn)
     f = interpolate.interp2d(x, y, z, kind='linear')
     zc = f(xn, yn)
